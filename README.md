@@ -1,60 +1,54 @@
 # HW 1: WebGL Fireball
 
+Ximing Luo, CIS 5660 Fall 2026
+
+Live demo: https://ximluo.github.io/hw01-fireball/
+
 <p align="center">
-  <img width="360" height="360" src="fireball.png">
+  <img width="720" src="screenshot.jpg">
 </p>
-<p align="center">(source: Aidan Gideon, CIS 5660 Fall 2025)</p>
 
-## Objective
-Get comfortable with using WebGL and its shaders to generate an interesting 3D, continuous surface using a multi-octave noise algorithm.
+## What it is
 
+A stylized fireball made from the base icosphere. The vertex shader pushes the mesh around with noise and pulls it into a teardrop with a trailing tail, the fragment shader colors it based on how far each vertex moved, and everything is driven by a time uniform. The look is stylized cel shaded, flat bands of color.
 
-## Getting Started
-- __Fork__ this repository
-- Run `npm install` and `npm run dev` to set up the dependencies for this project
-- Under the Github repo settings, navigate to "Build and deployment" -> "Source", and select **GitHub Actions**
-- Push (or re-push) to `master`. The workflow will build your project and deploy it automatically. The project should be visible at http://username.github.io/repo-name.
+## How the vertex shader works
 
-## Assignment Details
-- You will alter the vertex and fragment shaders used to render the Icosphere so that it looks like a fireball.
-- Your vertex shader should apply a low-frequency, high-amplitude displacement of your sphere so as to make it less uniformly sphere-like. You might consider using a combination of sinusoidal functions for this purpose. We recommend a function of the form `f(x, y, z) = h` to displace your vertices along a vector, such as their surface normals.
-- Your vertex shader should also apply a higher-frequency, lower-amplitude layer of fractal Brownian motion to apply a finer level of distortion on top of the high-amplitude displacement.
-- Your fragment shader should apply a gradient of colors to your fireball's surface, where the fragment color is correlated in some way to the vertex shader's displacement.
-- Both the vertex and fragment shaders should alter their output based on a uniform time variable (i.e. they should be animated). You might consider making a constant animation that causes the fireball's surface to roil, or you could make an animation loop in which the fireball repeatedly explodes.
-- Across both shaders, you should make use of at least four of the functions discussed in the Toolbox Functions slides.
+There are two layers of displacement along the normal. The first is a low frequency, high amplitude wobble made from a product of three sine waves over position and time. On its own that just makes a lumpy blob, but it keeps the overall shape moving. The second layer is fbm over 3D Perlin noise at a higher frequency and lower amplitude. On the tail side the noise is run through a ridged version (one minus the absolute value), which turns round bumps into sharp flame shapes.
 
-## Noise Application
-View your noise in action by applying it as a displacement on the surface of your icosahedron, giving your icosahedron a bumpy, cloud-like appearance. Simply take the noise value as a height, and offset the vertices along the icosahedron's surface normals. You are, of course, free to alter the way your noise perturbs your icosahedron's surface as you see fit; we are simply recommending an easy way to visualize your noise. You could even apply a couple of different noise functions to perturb your surface to make it even less spherical.
+The tail comes from two steps. Vertices on the back half get pulled in toward the tail axis, with the pull growing quadratically the further back they sit, so the sphere becomes a teardrop. Then vertices facing the tail direction get stretched along it, scaled by the squared ridged noise, so only some parts of the tail shoot out far and the trailing edge ends up jagged instead of smooth.
 
-In order to animate the vertex displacement, use time as the third dimension or as some offset to the (x, y, z) input to the noise function. Pass the current time since start of program as a uniform to the shaders.
+There is also a pulse mode that feeds a sawtooth on time into an impulse function, so the whole ball swells and settles every few seconds.
 
-For both visual impact and debugging help, also apply color to your geometry using the noise value at each point. There are several ways to do this. For example, you might use the noise value to create UV coordinates to read from a texture (say, a simple gradient image), or just compute the color by hand by lerping between values.
+## How the fragment shader works
 
-## Interactivity
-Using dat.GUI, make at least THREE aspects of your demo interactive variables. For example, you could add a slider to adjust the strength or scale of the noise, change the number of noise octaves, etc.
+The vertex shader passes down the normal displacement and the tail stretch as two floats. The fragment shader combines them into one heat value: more displacement means hotter, more tail means cooler, so the head stays white and the trailing flames fade toward black. Heat is then mapped through a ramp that goes near black, maroon, red, orange, the hot color from the GUI, and white. Every color section is just the hot color times a fixed multiplier, so picking a blue hot color turns the whole scene blue, background and sparks included. The heat gets quantized into six bands, with some scrolling 3D noise added first so the band edges stay ragged rather than forming clean rings.
 
-Add a button that will restore your fireball to some nice-looking (courtesy of your art direction) defaults.
+Toolbox functions used across the shaders: bias, gain, smoothstep, sawtooth, impulse, triangle wave, parabola, and ease in quadratic.
 
-## Extra Spice
-Choose one of the following options:
+## Controls
 
-- Background (easy-hard depending on how fancy you get): Add an interesting background or a more complex scene to place your fireball in so it's not floating in a black void
-- Custom mesh (easy): Figure out how to import a custom mesh rather than using an icosahedron for a fancy-shaped cloud.
-- Mouse interactivity (medium): Find out how to get the current mouse position in your scene and use it to deform your cloud, such that users can deform the cloud with their cursor.
-- Music (hard): Figure out a way to use music to drive your noise animation in some way, such that your noise cloud appears to dance.
+The dat.GUI panel has a Shape folder (mesh dropdown, tesselations, Load OBJ), a Noise folder (amplitude, fbmAmplitude, fbmOctaves, frequency, speed, tailLength, pulse, sparks), and a Look and Input folder (hotColor, mouseStrength, audioStrength, Load Music, Use Microphone). Reset Defaults puts everything back. Dragging on the canvas orbits the camera.
 
-## Submission
-1. Create a pull request to this repository with your completed code.
-2. Update README.md to contain a solid description of your project with a screenshot of some visuals, and a link to your live demo.
-3. Submit the link to your pull request on Gradescope, and add a comment to your submission with a hyperlink to your live demo.
-4. Include a link to your live site.
+## Extra
 
-## Resources
-- Javascript modules https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import
-- Typescript https://www.typescriptlang.org/docs/home.html
-- dat.gui https://workshop.chromeexperiments.com/examples/gui/
-- glMatrix http://glmatrix.net/docs/
-- WebGL
-  - Interfaces https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API
-  - Types https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Types
-  - Constants https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Constants
+The background is a full screen quad with its own shader. It stretches domain warped fbm horizontally so the noise reads as streaks sweeping past, layers a sine ripple on top, fades darker toward the top of the screen so the bottom glows, and adds a soft radial glow behind the ball.
+
+The custom mesh option is a small OBJ loader that reads positions, normals, and faces, fan triangulates polygons, computes smooth normals when the file has none, and centers and scales the model to fit. A subdivided five point star is provided as an example, and the Load OBJ button takes any other model.
+
+For mouse interaction, the cursor position is unprojected through the inverse view projection matrix into a ray, intersected with the plane through the origin that faces the camera, and sent to the vertex shader, which dents the surface near that point. The position and strength are smoothed over frames so the dent eases in, trails the cursor a bit, and fades out when the cursor leaves the canvas.
+
+For music, Load Music plays an audio file through a Web Audio analyser node and Use Microphone does the same with mic input. The average energy in the lowest frequency bins is smoothed and passed to the shaders, where it swells the displacement, lengthens the tail, and brightens the background glow.
+
+## Sparks
+
+On top of the four options there is a particle pass for embers. It draws 1500 point sprites, and each particle only stores four random seeds. The vertex shader turns the seeds plus time into a spawn point along the tail, a velocity, a lifetime, and a wobble, so nothing runs on the CPU per frame. About a quarter of the particles are sparks: fast, short lived, drawn as thin flat streaks rotated to line up with their own screen space motion. The rest are embers: slow tumbling blocks with a lighter core that shrinks as they cool, colors stepping from orange to red to dark red, and a blink near the end. Everything is flat color so it matches the ball.
+
+## Running it
+
+```
+npm install
+npm run dev
+```
+
+Then open http://localhost:5660. The music and mic features need a click on their buttons first because browsers block audio until there has been some user input.

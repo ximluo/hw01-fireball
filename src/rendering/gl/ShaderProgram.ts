@@ -1,4 +1,4 @@
-import {vec4, mat4} from 'gl-matrix';
+import {vec2, vec3, vec4, mat4} from 'gl-matrix';
 import Drawable from './Drawable';
 import {gl} from '../../globals';
 
@@ -29,6 +29,10 @@ class ShaderProgram {
   unifModelInvTr: WebGLUniformLocation;
   unifViewProj: WebGLUniformLocation;
   unifColor: WebGLUniformLocation;
+  unifTime: WebGLUniformLocation;
+  unifResolution: WebGLUniformLocation;
+  unifEye: WebGLUniformLocation;
+  unifs: Map<string, WebGLUniformLocation> = new Map();
 
   constructor(shaders: Array<Shader>) {
     this.prog = gl.createProgram();
@@ -48,6 +52,53 @@ class ShaderProgram {
     this.unifModelInvTr = gl.getUniformLocation(this.prog, "u_ModelInvTr");
     this.unifViewProj   = gl.getUniformLocation(this.prog, "u_ViewProj");
     this.unifColor      = gl.getUniformLocation(this.prog, "u_Color");
+    this.unifTime       = gl.getUniformLocation(this.prog, "u_Time");
+    this.unifResolution = gl.getUniformLocation(this.prog, "u_Resolution");
+    this.unifEye        = gl.getUniformLocation(this.prog, "u_Eye");
+  }
+
+  private loc(name: string): WebGLUniformLocation {
+    if (!this.unifs.has(name)) {
+      this.unifs.set(name, gl.getUniformLocation(this.prog, name));
+    }
+    return this.unifs.get(name);
+  }
+
+  setFloat(name: string, value: number) {
+    this.use();
+    const l = this.loc(name);
+    if (l !== null) {
+      gl.uniform1f(l, value);
+    }
+  }
+
+  setVec3(name: string, value: vec3) {
+    this.use();
+    const l = this.loc(name);
+    if (l !== null) {
+      gl.uniform3fv(l, value);
+    }
+  }
+
+  setTime(t: number) {
+    this.use();
+    if (this.unifTime !== null) {
+      gl.uniform1f(this.unifTime, t);
+    }
+  }
+
+  setResolution(res: vec2) {
+    this.use();
+    if (this.unifResolution !== null) {
+      gl.uniform2fv(this.unifResolution, res);
+    }
+  }
+
+  setEye(eye: vec3) {
+    this.use();
+    if (this.unifEye !== null) {
+      gl.uniform3fv(this.unifEye, eye);
+    }
   }
 
   use() {
